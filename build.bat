@@ -27,16 +27,11 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo [4/5] Preparing map tracker files...
-if not exist "Game-Map-Tracker-main\main_sift.py" (
-  if exist "Game-Map-Tracker-main.zip" (
-    echo Extracting Game-Map-Tracker-main.zip...
-    powershell -NoProfile -ExecutionPolicy Bypass -Command "Expand-Archive -LiteralPath 'Game-Map-Tracker-main.zip' -DestinationPath '.' -Force"
-  ) else (
-    echo [ERROR] Missing both Game-Map-Tracker-main folder and Game-Map-Tracker-main.zip.
-    pause
-    exit /b 1
-  )
+echo [4/5] Copying Game-Map-Tracker-main.zip...
+if not exist "Game-Map-Tracker-main.zip" (
+  echo [ERROR] Missing Game-Map-Tracker-main.zip in project root.
+  pause
+  exit /b 1
 )
 
 if not exist "dist\RocoKingdomTool" (
@@ -45,15 +40,9 @@ if not exist "dist\RocoKingdomTool" (
   exit /b 1
 )
 
-if not exist "Game-Map-Tracker-main\main_sift.py" (
-  echo [ERROR] Failed to prepare Game-Map-Tracker-main source folder.
-  pause
-  exit /b 1
-)
-
-xcopy /E /I /Y "Game-Map-Tracker-main" "dist\RocoKingdomTool\Game-Map-Tracker-main" >nul
+copy /Y "Game-Map-Tracker-main.zip" "dist\RocoKingdomTool\Game-Map-Tracker-main.zip" >nul
 if errorlevel 1 (
-  echo [ERROR] Failed to copy Game-Map-Tracker-main folder.
+  echo [ERROR] Failed to copy zip file.
   pause
   exit /b 1
 )

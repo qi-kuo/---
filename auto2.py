@@ -425,6 +425,37 @@ def launch_map_tracker():
     except Exception as e:
         messagebox.showerror("错误", f"启动地图跟踪器失败：{str(e)}")
 
+def launch_map_tracker():
+    """从压缩包释放并启动地图跟踪器（默认使用SIFT极速版）"""
+    global tracker_process
+    try:
+        if tracker_process and tracker_process.poll() is None:
+            messagebox.showinfo("提示", "地图跟踪器已经在运行中。")
+            return
+
+        base_dir = get_runtime_base_dir()
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        zip_path = os.path.join(base_dir, "Game-Map-Tracker-main.zip")
+        tracker_dir = os.path.join(base_dir, "Game-Map-Tracker-main")
+        entry_script = os.path.join(tracker_dir, "main_sift.py")
+
+        if not os.path.exists(zip_path):
+            messagebox.showerror("错误", "未找到 Game-Map-Tracker-main.zip")
+            return
+
+        if not os.path.exists(entry_script):
+            with zipfile.ZipFile(zip_path, "r") as zf:
+                zf.extractall(base_dir)
+
+        tracker_process = subprocess.Popen(
+            [sys.executable, entry_script],
+            cwd=tracker_dir,
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+        )
+        log_and_status("地图跟踪器已启动（SIFT模式）")
+    except Exception as e:
+        messagebox.showerror("错误", f"启动地图跟踪器失败：{str(e)}")
+
 # ==================== 主窗口构建（初始化顺序正确，绝无闪退）====================
 # 【关键】先初始化日志，再构建GUI，确保路径正确，无未定义变量
 init_logger()
