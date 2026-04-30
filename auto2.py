@@ -8,6 +8,8 @@ import threading
 import logging
 import sys
 import os
+import subprocess
+import zipfile
 from datetime import datetime
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -36,6 +38,7 @@ ui_queue = queue.Queue()
 
 # 全局日志路径（初始化顺序正确，绝无未定义报错）
 log_file_path = ""
+tracker_process = None
 
 # ==================== 日志系统（纯净无黑框，初始化顺序正确）====================
 def init_logger():
@@ -380,6 +383,36 @@ def open_log_file():
     except Exception as e:
         messagebox.showerror("错误", f"无法打开日志：{str(e)}")
 
+def launch_map_tracker():
+    """从压缩包释放并启动地图跟踪器（默认使用SIFT极速版）"""
+    global tracker_process
+    try:
+        if tracker_process and tracker_process.poll() is None:
+            messagebox.showinfo("提示", "地图跟踪器已经在运行中。")
+            return
+
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        zip_path = os.path.join(base_dir, "Game-Map-Tracker-main.zip")
+        tracker_dir = os.path.join(base_dir, "Game-Map-Tracker-main")
+        entry_script = os.path.join(tracker_dir, "main_sift.py")
+
+        if not os.path.exists(zip_path):
+            messagebox.showerror("错误", "未找到 Game-Map-Tracker-main.zip")
+            return
+
+        if not os.path.exists(entry_script):
+            with zipfile.ZipFile(zip_path, "r") as zf:
+                zf.extractall(base_dir)
+
+        tracker_process = subprocess.Popen(
+            [sys.executable, entry_script],
+            cwd=tracker_dir,
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+        )
+        log_and_status("地图跟踪器已启动（SIFT模式）")
+    except Exception as e:
+        messagebox.showerror("错误", f"启动地图跟踪器失败：{str(e)}")
+
 # ==================== 主窗口构建（初始化顺序正确，绝无闪退）====================
 # 【关键】先初始化日志，再构建GUI，确保路径正确，无未定义变量
 init_logger()
@@ -387,7 +420,7 @@ init_logger()
 # 构建主窗口
 root = tk.Tk()
 root.title("洛克王国刷花助手 · 最终终结碾压版")
-root.geometry("450x400")
+root.geometry("450x440")
 root.resizable(False, False)
 
 # 状态显示区
@@ -415,6 +448,8 @@ btn_stop = ttk.Button(btn_frame, text="停止脚本", command=stop_script, width
 btn_stop.grid(row=0, column=1, padx=5)
 btn_log = ttk.Button(btn_frame, text="打开日志", command=open_log_file, width=12)
 btn_log.grid(row=0, column=2, padx=5)
+btn_tracker = ttk.Button(btn_frame, text="启动地图跟踪", command=launch_map_tracker, width=12)
+btn_tracker.grid(row=1, column=0, columnspan=3, pady=8)
 
 # 底部提示
 ttk.Label(root, text="提示：启动前请站在魔力之源旁，确保游戏窗口在前台", font=("微软雅黑", 9), foreground="gray").pack(pady=5)
