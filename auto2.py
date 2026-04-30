@@ -397,6 +397,62 @@ def launch_map_tracker():
             messagebox.showinfo("提示", "地图跟踪器已经在运行中。")
             return
 
+        candidate_dirs = get_candidate_base_dirs()
+        base_dir = candidate_dirs[0]
+        tracker_dir = ""
+        entry_script = ""
+        zip_path = ""
+
+        # 优先查找已解压目录
+        for d in candidate_dirs:
+            p = os.path.join(d, "Game-Map-Tracker-main", "main_sift.py")
+            if os.path.exists(p):
+                base_dir = d
+                tracker_dir = os.path.join(d, "Game-Map-Tracker-main")
+                entry_script = p
+                break
+
+        # 若未找到目录入口，再查找zip并解压
+        if not entry_script:
+            for d in candidate_dirs:
+                z = os.path.join(d, "Game-Map-Tracker-main.zip")
+                if os.path.exists(z):
+                    base_dir = d
+                    zip_path = z
+                    break
+
+        if not os.path.exists(entry_script):
+            if zip_path and os.path.exists(zip_path):
+                with zipfile.ZipFile(zip_path, "r") as zf:
+                    zf.extractall(base_dir)
+                tracker_dir = os.path.join(base_dir, "Game-Map-Tracker-main")
+                entry_script = os.path.join(tracker_dir, "main_sift.py")
+            else:
+                checked = "\n".join([f"- {d}" for d in candidate_dirs])
+                messagebox.showerror("错误", f"未找到 Game-Map-Tracker-main 目录或对应zip文件。\n已检查路径：\n{checked}")
+                return
+
+        if not os.path.exists(entry_script):
+            messagebox.showerror("错误", "地图跟踪器入口文件不存在：main_sift.py")
+            return
+
+        tracker_process = subprocess.Popen(
+            [sys.executable, entry_script],
+            cwd=tracker_dir,
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+        )
+        log_and_status("地图跟踪器已启动（SIFT模式）")
+    except Exception as e:
+        messagebox.showerror("错误", f"启动地图跟踪器失败：{str(e)}")
+
+def launch_map_tracker():
+    """优先直接调用已解压目录，其次回退到zip解压后调用（默认SIFT极速版）"""
+    global tracker_process
+    try:
+        if tracker_process and tracker_process.poll() is None:
+            messagebox.showinfo("提示", "地图跟踪器已经在运行中。")
+            return
+
         base_dir = get_runtime_base_dir()
         tracker_dir = os.path.join(base_dir, "Game-Map-Tracker-main")
         entry_script = os.path.join(tracker_dir, "main_sift.py")
