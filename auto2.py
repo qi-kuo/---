@@ -40,6 +40,12 @@ ui_queue = queue.Queue()
 log_file_path = ""
 tracker_process = None
 
+def get_runtime_base_dir():
+    """兼容源码运行和打包运行，统一获取可执行文件所在目录"""
+    if getattr(sys, "frozen", False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__))
+
 # ==================== 日志系统（纯净无黑框，初始化顺序正确）====================
 def init_logger():
     global log_file_path
@@ -391,6 +397,7 @@ def launch_map_tracker():
             messagebox.showinfo("提示", "地图跟踪器已经在运行中。")
             return
 
+        base_dir = get_runtime_base_dir()
         base_dir = os.path.dirname(os.path.abspath(__file__))
         zip_path = os.path.join(base_dir, "Game-Map-Tracker-main.zip")
         tracker_dir = os.path.join(base_dir, "Game-Map-Tracker-main")
