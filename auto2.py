@@ -8,6 +8,8 @@ import threading
 import logging
 import sys
 import os
+import subprocess
+import zipfile
 from datetime import datetime
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -36,6 +38,29 @@ ui_queue = queue.Queue()
 
 # 全局日志路径（初始化顺序正确，绝无未定义报错）
 log_file_path = ""
+tracker_process = None
+
+def get_runtime_base_dir():
+    """兼容源码运行和打包运行，统一获取可执行文件所在目录"""
+    if getattr(sys, "frozen", False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__))
+
+def get_candidate_base_dirs():
+    """尽可能覆盖打包后各种启动方式的资源目录"""
+    dirs = []
+    runtime_dir = get_runtime_base_dir()
+    dirs.append(runtime_dir)
+    dirs.append(os.getcwd())
+    dirs.append(os.path.dirname(runtime_dir))
+    # 去重并过滤空值
+    seen = set()
+    result = []
+    for d in dirs:
+        if d and d not in seen:
+            seen.add(d)
+            result.append(d)
+    return result
 
 # ==================== 日志系统（纯净无黑框，初始化顺序正确）====================
 def init_logger():
@@ -380,6 +405,62 @@ def open_log_file():
     except Exception as e:
         messagebox.showerror("错误", f"无法打开日志：{str(e)}")
 
+def launch_map_tracker():
+    """优先直接调用已解压目录，其次回退到zip解压后调用（默认SIFT极速版）"""
+    global tracker_process
+    try:
+        if tracker_process and tracker_process.poll() is None:
+            messagebox.showinfo("提示", "地图跟踪器已经在运行中。")
+            return
+
+        candidate_dirs = get_candidate_base_dirs()
+        base_dir = candidate_dirs[0]
+        tracker_dir = ""
+        entry_script = ""
+        zip_path = ""
+
+        # 优先查找已解压目录
+        for d in candidate_dirs:
+            p = os.path.join(d, "Game-Map-Tracker-main", "main_sift.py")
+            if os.path.exists(p):
+                base_dir = d
+                tracker_dir = os.path.join(d, "Game-Map-Tracker-main")
+                entry_script = p
+                break
+
+        # 若未找到目录入口，再查找zip并解压
+        if not entry_script:
+            for d in candidate_dirs:
+                z = os.path.join(d, "Game-Map-Tracker-main.zip")
+                if os.path.exists(z):
+                    base_dir = d
+                    zip_path = z
+                    break
+
+        if not os.path.exists(entry_script):
+            if zip_path and os.path.exists(zip_path):
+                with zipfile.ZipFile(zip_path, "r") as zf:
+                    zf.extractall(base_dir)
+                tracker_dir = os.path.join(base_dir, "Game-Map-Tracker-main")
+                entry_script = os.path.join(tracker_dir, "main_sift.py")
+            else:
+                checked = "\n".join([f"- {d}" for d in candidate_dirs])
+                messagebox.showerror("错误", f"未找到 Game-Map-Tracker-main 目录或对应zip文件。\n已检查路径：\n{checked}")
+                return
+
+        if not os.path.exists(entry_script):
+            messagebox.showerror("错误", "地图跟踪器入口文件不存在：main_sift.py")
+            return
+
+        tracker_process = subprocess.Popen(
+            [sys.executable, entry_script],
+            cwd=tracker_dir,
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+        )
+        log_and_status("地图跟踪器已启动（SIFT模式）")
+    except Exception as e:
+        messagebox.showerror("错误", f"启动地图跟踪器失败：{str(e)}")
+
 # ==================== 主窗口构建（初始化顺序正确，绝无闪退）====================
 # 【关键】先初始化日志，再构建GUI，确保路径正确，无未定义变量
 init_logger()
@@ -387,7 +468,7 @@ init_logger()
 # 构建主窗口
 root = tk.Tk()
 root.title("洛克王国刷花助手 · 最终终结碾压版")
-root.geometry("450x400")
+root.geometry("450x440")
 root.resizable(False, False)
 
 # 状态显示区
@@ -415,6 +496,8 @@ btn_stop = ttk.Button(btn_frame, text="停止脚本", command=stop_script, width
 btn_stop.grid(row=0, column=1, padx=5)
 btn_log = ttk.Button(btn_frame, text="打开日志", command=open_log_file, width=12)
 btn_log.grid(row=0, column=2, padx=5)
+btn_tracker = ttk.Button(btn_frame, text="启动地图跟踪", command=launch_map_tracker, width=12)
+btn_tracker.grid(row=1, column=0, columnspan=3, pady=8)
 
 # 底部提示
 ttk.Label(root, text="提示：启动前请站在魔力之源旁，确保游戏窗口在前台", font=("微软雅黑", 9), foreground="gray").pack(pady=5)
