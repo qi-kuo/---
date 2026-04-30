@@ -398,6 +398,7 @@ def launch_map_tracker():
             return
 
         base_dir = get_runtime_base_dir()
+        base_dir = os.path.dirname(os.path.abspath(__file__))
         zip_path = os.path.join(base_dir, "Game-Map-Tracker-main.zip")
         tracker_dir = os.path.join(base_dir, "Game-Map-Tracker-main")
         entry_script = os.path.join(tracker_dir, "main_sift.py")
