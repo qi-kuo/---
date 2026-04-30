@@ -426,6 +426,42 @@ def launch_map_tracker():
         messagebox.showerror("错误", f"启动地图跟踪器失败：{str(e)}")
 
 def launch_map_tracker():
+    """优先直接调用已解压目录，其次回退到zip解压后调用（默认SIFT极速版）"""
+    global tracker_process
+    try:
+        if tracker_process and tracker_process.poll() is None:
+            messagebox.showinfo("提示", "地图跟踪器已经在运行中。")
+            return
+
+        base_dir = get_runtime_base_dir()
+        tracker_dir = os.path.join(base_dir, "Game-Map-Tracker-main")
+        entry_script = os.path.join(tracker_dir, "main_sift.py")
+        zip_path = os.path.join(base_dir, "Game-Map-Tracker-main.zip")
+
+        # 1) 优先直接调用已解压目录（你当前想要的方式）
+        # 2) 若目录不存在，再尝试从zip自动解压
+        if not os.path.exists(entry_script):
+            if os.path.exists(zip_path):
+                with zipfile.ZipFile(zip_path, "r") as zf:
+                    zf.extractall(base_dir)
+            else:
+                messagebox.showerror("错误", "未找到 Game-Map-Tracker-main 目录或对应zip文件")
+                return
+
+        if not os.path.exists(entry_script):
+            messagebox.showerror("错误", "地图跟踪器入口文件不存在：main_sift.py")
+            return
+
+        tracker_process = subprocess.Popen(
+            [sys.executable, entry_script],
+            cwd=tracker_dir,
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+        )
+        log_and_status("地图跟踪器已启动（SIFT模式）")
+    except Exception as e:
+        messagebox.showerror("错误", f"启动地图跟踪器失败：{str(e)}")
+
+def launch_map_tracker():
     """从压缩包释放并启动地图跟踪器（默认使用SIFT极速版）"""
     global tracker_process
     try:
